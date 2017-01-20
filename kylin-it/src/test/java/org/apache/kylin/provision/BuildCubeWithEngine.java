@@ -42,10 +42,12 @@ import org.apache.kylin.common.util.ClassUtil;
 import org.apache.kylin.common.util.HBaseMetadataTestCase;
 import org.apache.kylin.common.util.HadoopUtil;
 import org.apache.kylin.common.util.Pair;
+import org.apache.kylin.cube.CubeDescManager;
 import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.cube.CubeSegment;
 import org.apache.kylin.cube.CubeUpdate;
+import org.apache.kylin.cube.model.CubeDesc;
 import org.apache.kylin.engine.EngineFactory;
 import org.apache.kylin.engine.mr.CubingJob;
 import org.apache.kylin.job.DeployUtil;
@@ -69,9 +71,11 @@ import com.google.common.collect.Lists;
 public class BuildCubeWithEngine {
 
     private CubeManager cubeManager;
+    private CubeDescManager cubeDescManager;
     private DefaultScheduler scheduler;
     protected ExecutableManager jobService;
     private static boolean fastBuildMode = false;
+    private static int engineType;
 
     private static final Logger logger = LoggerFactory.getLogger(BuildCubeWithEngine.class);
 
@@ -111,7 +115,17 @@ public class BuildCubeWithEngine {
             logger.info("Will not use fast build mode");
         }
 
+        String specifiedEngineType = System.getProperty("engineType");
+        if (StringUtils.isNotEmpty(specifiedEngineType)) {
+            engineType = Integer.parseInt(specifiedEngineType);
+            logger.info("Will use engineType " + engineType);
+        } else {
+            engineType = 2;
+            logger.info("Use default MR engine");
+        }
+
         System.setProperty(KylinConfig.KYLIN_CONF, HBaseMetadataTestCase.SANDBOX_TEST_DATA);
+        System.setProperty("SPARK_HOME", "/usr/local/spark"); // need manually create and put spark to this folder on Jenkins
         if (StringUtils.isEmpty(System.getProperty("hdp.version"))) {
             throw new RuntimeException("No hdp.version set; Please set hdp.version in your jvm option, for example: -Dhdp.version=2.2.4.2-2");
         }
@@ -155,6 +169,7 @@ public class BuildCubeWithEngine {
             }
         }
 
+        cubeDescManager = CubeDescManager.getInstance(kylinConfig);
     }
 
     public void after() {
@@ -251,6 +266,7 @@ public class BuildCubeWithEngine {
     private boolean testLeftJoinCube() throws Exception {
         String cubeName = "ci_left_join_cube";
         clearSegment(cubeName);
+        updateCubeEngineType(cubeName);
 
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
         f.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -279,7 +295,8 @@ public class BuildCubeWithEngine {
 
         String cubeName = "ci_inner_join_cube";
         clearSegment(cubeName);
-        
+        updateCubeEngineType(cubeName);
+
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
         f.setTimeZone(TimeZone.getTimeZone("GMT"));
         long date1 = 0;
@@ -294,6 +311,14 @@ public class BuildCubeWithEngine {
             }
         }
         return false;
+    }
+
+    private void updateCubeEngineType(String cubeName) throws IOException {
+        CubeDesc cubeDesc = cubeDescManager.getCubeDesc(cubeName);
+        if (cubeDesc.getEngineType() != engineType) {
+            cubeDesc.setEngineType(engineType);
+            cubeDescManager.updateCubeDesc(cubeDesc);
+        }
     }
 
     private void clearSegment(String cubeName) throws Exception {

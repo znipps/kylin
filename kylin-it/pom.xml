@@ -36,6 +36,7 @@
     <properties>
         <hdp.version/>
         <fastBuildMode/>
+        <engineType/>
     </properties>
 
     <!-- Dependencies. -->
@@ -303,6 +304,7 @@
                                         <argument>-DuseSandbox=true</argument>
                                         <argument>-Dhdp.version=${hdp.version}</argument>
                                         <argument>-DfastBuildMode=${fastBuildMode}</argument>
+                                        <argument>-DengineType=${engineType}</argument>
                                         <argument>-Dlog4j.configuration=file:${project.basedir}/..//build/conf/kylin-tools-log4j.properties</argument>
                                         <argument>-classpath</argument>
                                         <classpath/>
